@@ -81,20 +81,6 @@ def tabla_kivalasztasa(anyag: str, vastagsag: int, osszes_tabla: List[Tabla]) ->
         return None
     return max(elerheto, key=lambda t: t.szelesseg * t.hossz)
 
-# ==================== HELYES TOLDÁS KEZELÉS ====================
-
-def toldashoz_szukseges_tablak_szama(darab_hossz: int, tabla_hossz: int, vagasveszteseg: int) -> int:
-    """
-    Kiszámolja, hogy hány tábla kell a darab hosszának eléréséhez.
-    Ez a HELYES toldás logika!
-    
-    Példa: 2400 mm-es darab, 1250 mm-es tábla → 2 tábla kell
-    """
-    if darab_hossz <= tabla_hossz:
-        return 1
-    
-    return math.ceil((darab_hossz + vagasveszteseg) / (tabla_hossz + vagasveszteseg))
-
 # ==================== DARABOK SZÁMOLÁSA EGY TÁBLÁBÓL ====================
 
 def darabok_szama_egy_tablabol(
@@ -105,7 +91,6 @@ def darabok_szama_egy_tablabol(
 ) -> int:
     """
     Kiszámolja, hogy egy táblából hány darab vágható ki.
-    FIGYELEM: Ha toldás kell, akkor a darabok száma csökken!
     """
     if darab_szelesseg > tabla.szelesseg:
         return 0
@@ -115,9 +100,12 @@ def darabok_szama_egy_tablabol(
     if db_szelesseg == 0:
         return 0
     
-    # Hány darab fér a hosszban (toldás nélkül)
+    # Hány darab fér a hosszban
+    # FIGYELEM: A darab_hossz a teljes hossz (pl. 2400 mm)
+    # A tabla.hossz a tábla hossza (pl. 1250 mm XPS-nél)
     if darab_hossz > tabla.hossz:
-        # Ha toldás kell, akkor egy táblából CSAK 1 darab fér hosszban!
+        # TOLDÁS KELL!
+        # Egy táblából CSAK 1 darab fér a hosszban
         db_hossz = 1
     else:
         db_hossz = (tabla.hossz + vagasveszteseg) // (darab_hossz + vagasveszteseg)
@@ -148,15 +136,20 @@ def darabok_kihelyezese(
         if szelesseg > tabla.szelesseg:
             continue
         
-        # Ha toldás kell, akkor a táblán csak a tábla hossza használható
-        effektiv_hossz = hossz if hossz <= tabla.hossz else tabla.hossz
+        # Ha toldás kell, a táblán csak a tábla hossza használható
+        if hossz > tabla.hossz:
+            effektiv_hossz = tabla.hossz  # XPS: 1250 mm
+        else:
+            effektiv_hossz = hossz
         
         for _ in range(darabszam):
+            # Ellenőrizzük, hogy befér-e az aktuális sorba
             if akt_x + szelesseg > tabla.szelesseg:
                 akt_x = 0
                 akt_y += max_y_this_row + vagasveszteseg
                 max_y_this_row = 0
             
+            # Ellenőrizzük, hogy befér-e a táblába
             if akt_y + effektiv_hossz > tabla.hossz:
                 continue
             
@@ -168,13 +161,12 @@ def darabok_kihelyezese(
                 darabszam=1
             ))
             
-            # Csak a táblán elfoglalt területet számoljuk!
             felhasznalt_terulet += szelesseg * effektiv_hossz
             akt_x += szelesseg + vagasveszteseg
             max_y_this_row = max(max_y_this_row, effektiv_hossz)
     
     teljes_terulet = tabla.szelesseg * tabla.hossz
-    hulladek_terulet = teljes_terulet - felhasznalt_terulet
+    hulladek_terulet = max(0, teljes_terulet - felhasznalt_terulet)
     kihasznaltsag = (felhasznalt_terulet / teljes_terulet) * 100 if teljes_terulet > 0 else 0
     hulladek_szazalek = max(0, 100 - kihasznaltsag)
     
@@ -182,8 +174,8 @@ def darabok_kihelyezese(
         tabla=tabla,
         darabok=poziciok,
         felhasznalt_terulet=felhasznalt_terulet,
-        hulladek_terulet=max(0, hulladek_terulet),
-        kihasznaltsag=max(0, kihasznaltsag),
+        hulladek_terulet=hulladek_terulet,
+        kihasznaltsag=kihasznaltsag,
         hulladek_szazalek=hulladek_szazalek
     )
 
