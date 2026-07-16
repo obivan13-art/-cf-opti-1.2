@@ -91,26 +91,23 @@ def darabok_szama_egy_tablabol(
 ) -> int:
     """
     Kiszámolja, hogy egy táblából hány darab vágható ki.
+    
+    HELYES LOGIKA:
+    - Szélességben: hány darab fér egymás mellé
+    - Hosszban: hány darab kell a teljes hosszhoz (toldás)
+    - Összesen: szélesség × hossz darab
     """
     if darab_szelesseg > tabla.szelesseg:
         return 0
     
-    # Hány darab fér a szélességben
+    # Hány darab fér a szélességben (vágásveszteséggel)
     db_szelesseg = (tabla.szelesseg + vagasveszteseg) // (darab_szelesseg + vagasveszteseg)
     if db_szelesseg == 0:
         return 0
     
-    # Hány darab fér a hosszban
-    # FIGYELEM: A darab_hossz a teljes hossz (pl. 2400 mm)
-    # A tabla.hossz a tábla hossza (pl. 1250 mm XPS-nél)
-    if darab_hossz > tabla.hossz:
-        # TOLDÁS KELL!
-        # Egy táblából CSAK 1 darab fér a hosszban
-        db_hossz = 1
-    else:
-        db_hossz = (tabla.hossz + vagasveszteseg) // (darab_hossz + vagasveszteseg)
-        if db_hossz == 0:
-            return 0
+    # Hány darab kell a hosszhoz (toldás)
+    # Pl: 2400 mm-es darab, 1250 mm-es tábla → 2 db kell
+    db_hossz = math.ceil((darab_hossz + vagasveszteseg) / (tabla.hossz + vagasveszteseg))
     
     return db_szelesseg * db_hossz
 
@@ -136,11 +133,11 @@ def darabok_kihelyezese(
         if szelesseg > tabla.szelesseg:
             continue
         
-        # Ha toldás kell, a táblán csak a tábla hossza használható
-        if hossz > tabla.hossz:
-            effektiv_hossz = tabla.hossz  # XPS: 1250 mm
-        else:
-            effektiv_hossz = hossz
+        # Hány darab kell a hosszhoz (toldás)
+        db_toldas = math.ceil((hossz + vagasveszteseg) / (tabla.hossz + vagasveszteseg))
+        
+        # Egy darab tényleges hossza a táblán
+        darab_hossz_tablan = hossz / db_toldas
         
         for _ in range(darabszam):
             # Ellenőrizzük, hogy befér-e az aktuális sorba
@@ -150,7 +147,7 @@ def darabok_kihelyezese(
                 max_y_this_row = 0
             
             # Ellenőrizzük, hogy befér-e a táblába
-            if akt_y + effektiv_hossz > tabla.hossz:
+            if akt_y + darab_hossz_tablan > tabla.hossz:
                 continue
             
             poziciok.append(DarabPozicio(
@@ -161,9 +158,9 @@ def darabok_kihelyezese(
                 darabszam=1
             ))
             
-            felhasznalt_terulet += szelesseg * effektiv_hossz
+            felhasznalt_terulet += szelesseg * darab_hossz_tablan
             akt_x += szelesseg + vagasveszteseg
-            max_y_this_row = max(max_y_this_row, effektiv_hossz)
+            max_y_this_row = max(max_y_this_row, darab_hossz_tablan)
     
     teljes_terulet = tabla.szelesseg * tabla.hossz
     hulladek_terulet = max(0, teljes_terulet - felhasznalt_terulet)
@@ -292,7 +289,7 @@ if "darabok" not in st.session_state:
     st.session_state.darabok = [
         {"anyag": "Compacfoam", "vastagsag": 40, "szelesseg": 120, "hossz": 2400, "darabszam": 10},
         {"anyag": "XPS", "vastagsag": 20, "szelesseg": 200, "hossz": 2400, "darabszam": 2},
-        {"anyag": "XPS", "vastagsag": 20, "szelesseg": 200, "hossz": 2400, "darabszam": 10},
+        {"anyag": "XPS", "vastagsag": 20, "szelesseg": 200, "hossz": 3000, "darabszam": 1},
     ]
 
 col1, col2 = st.columns([2, 1])
